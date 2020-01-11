@@ -52,66 +52,81 @@ def load_folder(path, split = 0.9):
 			print("Loaded: ", file_name)
 	train = torch.stack(train)
 	train = torch.stack((train, train))
-	test = torch.stack(test)
-	test = torch.stack((test, test))
+	# test = torch.stack(test)
+	# test = torch.stack((test, test))
 	return train, test
 
 class Net(nn.Module):
 	def __init__(self):
 		super().__init__()
-		self.fc1 = nn.Linear((width * height * 3), 64)
-		# self.fc2 = nn.Linear(64, 64)
-		# self.fc3 = nn.Linear(64, 64)
-		# self.fc4 = nn.Linear(64, 64)
-		self.fc5 = nn.Linear(64, (width * height * 3))
+		thk = 128
+		# self.fc1 = nn.Linear((width * height * 3), thk)
+		self.conv1 = nn.Conv2d(1, 32, 5)
+		self.conv1 = nn.Conv2d(32, 64, 5)
+		self.conv3 = nn.Conv2d(64, 128, 5)
+		# self.fc2 = nn.Linear(thk, thk)
+		# self.fc3 = nn.Linear(thk, thk)
+		# self.fc4 = nn.Linear(thk, thk)
+		# self.fc5 = nn.Linear(thk, (width * height * 3))
 
 	def forward(self, x):
 		x = F.relu(self.fc1(x))
-		# x = F.relu(self.fc2(x))
-		# x = F.relu(self.fc3(x))
-		# x = F.relu(self.fc4(x))
+		x = F.relu(self.fc2(x))
+		x = F.relu(self.fc3(x))
+		x = F.relu(self.fc4(x))
 		x = self.fc5(x)
 		return x
 
 
 def test2():
-	train, test = load_folder("C:\\Users\\tifa-\\Pictures\\Camera Roll")
+	train, test = load_folder("C:\\Users\\tifa-\\Pictures\\Camera Roll", 1)
 
 	if torch.cuda.is_available():
 		device = torch.device("cuda")  # a CUDA device object
 	else:
 		device = torch.device("cpu")
 
-	train_set = torch.utils.data.DataLoader(train, batch_size=10, shuffle=True)
-	test_set = torch.utils.data.DataLoader(test, batch_size=10, shuffle=False)
+	train_set = torch.utils.data.DataLoader(train, batch_size=5, shuffle=True)
+	# test_set = torch.utils.data.DataLoader(test, batch_size=10, shuffle=False)
 
 	net = Net().to(device)
-	optimizer = optim.Adam(net.parameters(), lr=0.01)
-
-	EPOCHS = 5
+	lr = 0.01
+	EPOCHS = 300
 
 
 	print("Begining training")
 	for epoch in range(EPOCHS):
+		lr *= 0.99
+		optimizer = optim.Adam(net.parameters(), lr=lr)
 		for data in train_set:
 			x, y = data
 			x = x.to(device, torch.float)
 			y = y.to(device, torch.float)
 			net.zero_grad()
-			output = net(x.view(-1, (width * height * 3)))  # flatten input and predict using net  fixme float?
+			output = net(x.view(-1, (width * height * 3)))  # flatten input and predict using net
 			# loss = F.nll_loss(output, y)  # used for scalar outputs
 			loss = F.mse_loss(output, y.view(-1, (width * height * 3)))  # used for vector outputs
 			loss.backward()  # apply backpropagation
 			optimizer.step()  # apply adjustments
-		print("Loss: ", loss)
+
+		if epoch % 10 == 0:
+			with torch.no_grad():
+				print("LR: ", lr, "\tLoss: ", loss)
+				plt.imshow(output.view(-1, height, width, 3)[0].cpu())
+				plt.show()
 
 	with torch.no_grad():
 		img_in = Image.open("input_image.jpg").resize((width, height))
 		t_1 = image_to_tensor(img_in).view(1, (width * height * 3)).to(device, torch.float)
-		t_2 = net(t_1).view(width, height, 3)
+		t_2 = net(t_1)
 
-		plt.imshow(t_2.cpu())
+		plt.imshow(t_1.view(height, width, 3).cpu())
 		plt.show()
+		plt.imshow(t_2.view(height, width, 3).cpu())
+		plt.show()
+
+		img_out = tensor_to_image(t_2)
+		img_out.save("output_image.jpg")
 
 
 def test3():
