@@ -1,14 +1,30 @@
+import random
 
 from PIL import Image
 import numpy as np
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
 import matplotlib.pyplot as plt
+import os
+
+width, height = 128, 72
+# size = (1280, 720)
+
+def image_to_tensor(img):
+	arr = np.array(img, dtype="float")
+	arr /= 256
+	return torch.from_numpy(arr)
+
+def tensor_to_image(tsr):
+	arr = np.array(tsr.cpu())
+	arr *= 256
+	return Image.fromarray(arr.astype("uint8"))
 
 def test1():
 	img_in = Image.open("input_image.jpg")
-	np_in = np.array(img_in, dtype="float")
-	np_in /= 256
-	t_1 = torch.from_numpy(np_in)
+	t_1 = image_to_tensor(img_in)
 
 	t_rand = torch.rand(t_1.shape)
 	t_1 *= t_rand
@@ -16,24 +32,98 @@ def test1():
 	plt.imshow(t_1)
 	plt.show()
 
-	np_out = np.array(t_1)
-	np_out *= 256
-	img_out = Image.fromarray(np_out.astype("uint8"))
+	img_out = tensor_to_image(t_1)
 	img_out.save("output_image.jpg")
 
-def load_folder(path):
-	result = np.empty(0, dtype="float")
-	for _ in []:  # fixme
-		img_in = Image.open("input_image.jpg")
-		np_in = np.array(img_in, dtype="float")
-		np_in /= 256
-		result += np_in
-	return torch.from_numpy(np_in)
+def load_folder(path, split = 0.9):
+	print("Loading from: ", path)
+	train = []
+	test = []
+	for file_name in os.listdir(path):
+		file_path = path + '\\' + file_name
+		file_pre_name, file_ext = os.path.splitext(file_path)
+		if file_ext == ".jpg":
+			img = Image.open(file_path).resize((width, height))
+			tsr = image_to_tensor(img)
+			if random.random() < split:
+				train += [tsr]
+			else:
+				test += [tsr]
+			print("Loaded: ", file_name)
+	train = torch.stack(train)
+	train = torch.stack((train, train))
+	test = torch.stack(test)
+	test = torch.stack((test, test))
+	return train, test
+
+class Net(nn.Module):
+	def __init__(self):
+		super().__init__()
+		self.fc1 = nn.Linear((width * height * 3), 64)
+		# self.fc2 = nn.Linear(64, 64)
+		# self.fc3 = nn.Linear(64, 64)
+		# self.fc4 = nn.Linear(64, 64)
+		self.fc5 = nn.Linear(64, (width * height * 3))
+
+	def forward(self, x):
+		x = F.relu(self.fc1(x))
+		# x = F.relu(self.fc2(x))
+		# x = F.relu(self.fc3(x))
+		# x = F.relu(self.fc4(x))
+		x = self.fc5(x)
+		return x
 
 
 def test2():
-	torch.utils.data.DataLoader()
-	print("moo")
+	train, test = load_folder("C:\\Users\\tifa-\\Pictures\\Camera Roll")
+
+	if torch.cuda.is_available():
+		device = torch.device("cuda")  # a CUDA device object
+	else:
+		device = torch.device("cpu")
+
+	train_set = torch.utils.data.DataLoader(train, batch_size=10, shuffle=True)
+	test_set = torch.utils.data.DataLoader(test, batch_size=10, shuffle=False)
+
+	net = Net().to(device)
+	optimizer = optim.Adam(net.parameters(), lr=0.01)
+
+	EPOCHS = 5
+
+
+	print("Begining training")
+	for epoch in range(EPOCHS):
+		for data in train_set:
+			x, y = data
+			x = x.to(device, torch.float)
+			y = y.to(device, torch.float)
+			net.zero_grad()
+			output = net(x.view(-1, (width * height * 3)))  # flatten input and predict using net  fixme float?
+			# loss = F.nll_loss(output, y)  # used for scalar outputs
+			loss = F.mse_loss(output, y.view(-1, (width * height * 3)))  # used for vector outputs
+			loss.backward()  # apply backpropagation
+			optimizer.step()  # apply adjustments
+		print("Loss: ", loss)
+
+	with torch.no_grad():
+		img_in = Image.open("input_image.jpg").resize((width, height))
+		t_1 = image_to_tensor(img_in).view(1, (width * height * 3)).to(device, torch.float)
+		t_2 = net(t_1).view(width, height, 3)
+
+		plt.imshow(t_2.cpu())
+		plt.show()
+
+
+def test3():
+	x = torch.from_numpy(np.array(range(1000), dtype=float))
+	x -= 500
+	x /= 100
+	y = F.selu(x)
+
+	plt.plot(np.array(x), np.array(y))
+	plt.show()
 
 if __name__ == "__main__":
-	test1()
+	# test1()
+	test2()
+	# test3()
