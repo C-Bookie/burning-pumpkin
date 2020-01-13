@@ -12,6 +12,11 @@ import os
 width, height = 128, 72
 # size = (1280, 720)
 
+if torch.cuda.is_available():
+	device = torch.device("cuda")  # a CUDA device object
+else:
+	device = torch.device("cpu")
+
 def image_to_tensor(img):
 	arr = np.array(img, dtype="float")
 	arr /= 256
@@ -77,28 +82,15 @@ class Net(nn.Module):
 		x = self.fc5(x)
 		return x
 
-
-def test2():
-	train, test = load_folder("C:\\Users\\tifa-\\Pictures\\Camera Roll", 1)
-
-	if torch.cuda.is_available():
-		device = torch.device("cuda")  # a CUDA device object
-	else:
-		device = torch.device("cpu")
-
-	train_set = torch.utils.data.DataLoader(train, batch_size=5, shuffle=True)
-	# test_set = torch.utils.data.DataLoader(test, batch_size=10, shuffle=False)
-
-	net = Net().to(device)
+def train(net, train_batch, lr = 0.01, EPOCHS = 300):
 	lr = 0.01
 	EPOCHS = 300
-
 
 	print("Begining training")
 	for epoch in range(EPOCHS):
 		lr *= 0.99
 		optimizer = optim.Adam(net.parameters(), lr=lr)
-		for data in train_set:
+		for data in train_batch:
 			x, y = data
 			x = x.to(device, torch.float)
 			y = y.to(device, torch.float)
@@ -127,6 +119,14 @@ def test2():
 
 		img_out = tensor_to_image(t_2)
 		img_out.save("output_image.jpg")
+
+
+def test2():
+	train_set, test_set = load_folder("C:\\Users\\tifa-\\Pictures\\Camera Roll", 1)
+	train_batch = torch.utils.data.DataLoader(train_set, batch_size=5, shuffle=True)
+
+	net = Net().to(device)
+	train(net, train_batch)
 
 
 def test3():
