@@ -1,6 +1,8 @@
 
 import numpy as np
 
+# https://www.youtube.com/watch?v=HYLyhXRp298
+# https://www.youtube.com/watch?v=QY9NTVh-Awo&list=PLK6OXn46jYQlUi1MYIxqcShx4_6mfPZ6j
 
 class Net:
 	class Channel:
@@ -8,9 +10,9 @@ class Net:
 			self.equilibrium = equilibrium  # E_c the voltage when the current is 0
 			self.maximum_conductance = 1  # g_bar_c the maximum conductance of the channel fixme, neuron sensitivity to chanel
 			self.fraction_open = np.zeros(size)  # g_c the fraction of the channels current from 0 to 1 at time t
-			conductance = np.zeros(size)
+			conductance = np.zeros(size)  # placeholder value never used
 
-			weights = np.random.rand(size, size) * 2 - 1  # todo
+			weights = np.zeros(size, size)  # todo
 
 		def getConductance(self):  # g_c * g_bar_c
 			self.conductance = self.fraction_open * self.maximum_conductance
@@ -57,7 +59,7 @@ class Net:
 		x = np.maximum(0, self.gain * (self.membrane_potential - self.threshold))  # ReLU, https://stackoverflow.com/questions/32109319/how-to-implement-the-relu-function-in-numpy
 		self.act = x / (x + 1)  # rate coding
 		self.fired = self.act > 0
-		self.membrane_potential = np.vectorize(lambda x, y: self.default_membrane_potential if x else y)(self.fired, self.membrane_potential)
+		self.membrane_potential = np.vectorize(lambda x, y: self.default_membrane_potential if x else y)(self.fired, self.membrane_potential)  # potential PyTorch incompatibility
 		# self.membrane_potential = np.where(self.fired, self.membrane_potential, np.full(self.size, self.default_membrane_potential))
 
 		self.I_net = self.getNetCurrent()
